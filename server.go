@@ -39,16 +39,15 @@ func (s *server) handleImpressionsAndClicks(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	POI0, POI1 := s.CalculateImpressionsAndClicks(POIs)
-
-	type Response struct {
-		POI1 POI
-		POI2 POI
+	if len(POIs) != 2 {
+		w.WriteHeader(http.StatusBadRequest)
 	}
 
-	result := Response{
-		POI0,
-		POI1,
+	POI0, POI1 := s.CalculateImpressionsAndClicks(POIs)
+
+	result := map[string]POI{
+		POI0.Name: POI0,
+		POI1.Name: POI1,
 	}
 
 	err = json.NewEncoder(w).Encode(&result)
