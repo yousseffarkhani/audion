@@ -37,10 +37,12 @@ func (s *server) handleImpressionsAndClicks(w http.ResponseWriter, r *http.Reque
 	err := json.NewDecoder(r.Body).Decode(&POIs)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
+		return
 	}
 
 	if len(POIs) != 2 {
 		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
 
 	POI0, POI1 := s.CalculateImpressionsAndClicks(POIs)
