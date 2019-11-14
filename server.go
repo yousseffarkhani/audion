@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"math"
 	"net/http"
+	"sort"
 
 	"github.com/gorilla/mux"
 )
@@ -40,17 +41,7 @@ func (s *server) handleImpressionsAndClicks(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if len(POIs) != 2 {
-		w.WriteHeader(http.StatusBadRequest)
-		return
-	}
-
-	POI0, POI1 := s.CalculateImpressionsAndClicks(POIs)
-
-	result := map[string]POI{
-		POI0.Name: POI0,
-		POI1.Name: POI1,
-	}
+	result := s.CalculateImpressionsAndClicks(POIs)
 
 	err = json.NewEncoder(w).Encode(&result)
 	if err != nil {
@@ -58,15 +49,36 @@ func (s *server) handleImpressionsAndClicks(w http.ResponseWriter, r *http.Reque
 	}
 }
 
-func (s *server) CalculateImpressionsAndClicks(POIs []POI) (POI, POI) {
-	for _, event := range s.eventsDB {
-		if POIs[0].calculateSquaredDistanceFrom(event) > POIs[1].calculateSquaredDistanceFrom(event) {
-			POIs[1].incrementImpressionOrClick(event.Type)
-			continue
-		}
-		POIs[0].incrementImpressionOrClick(event.Type)
+func (s *server) CalculateImpressionsAndClicks(POIs []POI) map[string]POI {
+	type indexAndDistance struct {
+		index             int
+		distanceFromEvent float64
 	}
-	return POIs[0], POIs[1]
+	for _, event := range s.eventsDB {
+		var indexesAndDistances []indexAndDistance
+
+		for index, POI := range POIs {
+			indexesAndDistances = append(indexesAndDistances,
+				indexAndDistance{
+					index,
+					POI.calculateSquaredDistanceFrom(event),
+				},
+			)
+		}
+		sort.Slice(indexesAndDistances, func(i, j int) bool {
+			return indexesAndDistances[i].distanceFromEvent < indexesAndDistances[j].distanceFromEvent
+		})
+
+		POIs[indexesAndDistances[0].index].incrementImpressionOrClick(event.Type)
+	}
+
+	result := make(map[string]POI)
+
+	for _, POI := range POIs {
+		result[POI.Name] = POI
+	}
+
+	return result
 }
 
 func (p *POI) incrementImpressionOrClick(eventType string) {
